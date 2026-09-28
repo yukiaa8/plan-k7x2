@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>커미션 작업 현황</title>
+<style>
+  :root {
+    --bg:           #ffffff;
+    --bg2:          #f5f5f5;
+    --bg3:          #eeeeee;
+    --text1:        #111111;
+    --text2:        #555555;
+    --text3:        #999999;
+    --border1:      #e0e0e0;
+    --border2:      #cccccc;
+    --blue:         #2563EB;
+    --blue-bg:      rgba(37,99,235,0.10);
+    --info-bg:      rgba(37,99,235,0.08);
+    --info-fg:      #1d4ed8;
+    --warn-bg:      rgba(234,179,8,0.12);
+    --warn-fg:      #a16207;
+    --succ-bg:      rgba(34,197,94,0.12);
+    --succ-fg:      #15803d;
+    --dang-bg:      rgba(239,68,68,0.12);
+    --dang-fg:      #b91c1c;
+    --radius:       8px;
+    --font:         -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text1); padding: 24px 28px 60px; }
+  input, select { background: transparent; border: none; outline: none; color: inherit; font: inherit; width: 100%; }
+  select { cursor: pointer; }
+  input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: .45; }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* ── Stats ── */
+  .stats-bar { display:flex; align-items:center; gap:12px; padding:16px 0 14px; border-bottom:.5px solid var(--border1); flex-wrap:wrap; }
+  .stats-title-sub { font-size:10px; font-weight:500; color:var(--text3); letter-spacing:.1em; text-transform:uppercase; margin-bottom:3px; }
+  .stats-title { font-size:17px; font-weight:500; }
+  .stats-chips { margin-left:auto; display:flex; gap:10px; flex-wrap:wrap; }
+  .stat-chip { border-radius:var(--radius); padding:8px 14px; text-align:center; min-width:76px; }
+  .stat-chip-label { font-size:10px; font-weight:500; margin-bottom:1px; white-space:nowrap; opacity:.75; }
+  .stat-chip-val { font-size:22px; font-weight:500; line-height:1; font-variant-numeric:tabular-nums; }
+  .stat-chip-unit { font-size:10px; margin-top:2px; opacity:.6; }
+  /* 월별 남은 갯수: 최상단 오른쪽, 배경 없는 텍스트 형태 */
+  .month-remain { display:flex; justify-content:flex-end; align-items:baseline; gap:10px; margin-bottom:2px; font-size:12px; color:var(--text3); }
+  .month-remain .mr-sep { color:var(--border2); }
+  .month-remain .mr-val { font-size:15px; font-weight:700; color:var(--text1); font-variant-numeric:tabular-nums; margin:0 1px 0 4px; }
+
+  /* ── Toolbar ── */
+  .toolbar { display:flex; gap:6px; padding:10px 0 6px; align-items:center; flex-wrap:wrap; }
+  .toolbar-label { font-size:11px; color:var(--text3); margin-right:2px; }
+  .sort-btn { cursor:pointer; background:none; border:.5px solid transparent; font:inherit;
+    color:var(--text2); display:inline-flex; align-items:center; gap:3px;
+    font-size:12px; padding:4px 9px; border-radius:5px; transition:all .12s; }
+  .sort-btn:hover { border-color:var(--border2); background:var(--bg2); }
+  .sort-btn.active { color:var(--blue); border-color:var(--blue); background:var(--blue-bg); font-weight:500; }
+  .reset-btn { cursor:pointer; background:none; border:.5px solid var(--border2); font:inherit;
+    color:var(--text2); display:inline-flex; align-items:center; gap:3px;
+    font-size:12px; padding:4px 9px; border-radius:5px; transition:all .12s; }
+  .reset-btn:hover { border-color:var(--border2); background:var(--bg2); }
+  .data-controls { margin-left:auto; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .data-controls .toolbar-label { font-size:11px; }
+  .sort-btn.sync-active { color:var(--succ-fg); border-color:var(--succ-fg); background:var(--succ-bg); font-weight:500; }
+  .sort-btn.sync-pending { color:var(--warn-fg); border-color:var(--warn-fg); background:var(--warn-bg); font-weight:500; }
+
+  /* ── Table ── */
+  .tbl-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; min-width:820px; }
+  thead tr { background:var(--bg2); }
+  th { padding:9px 10px; font-size:11px; font-weight:500; color:var(--text3);
+    border-bottom:.5px solid var(--border1); white-space:pre-line; line-height:1.4;
+    user-select:none; letter-spacing:.03em; }
+  td { padding:7px 10px; border-bottom:.5px solid var(--border1); vertical-align:middle; font-size:13px; }
+  tr.done-row td { background:rgb(204,204,204) !important; }
+  tr.done-row td.num-cell { background:rgb(204,204,204) !important; }
+  .del-btn { opacity:0; transition:opacity .12s; border:none; background:none; cursor:pointer;
+    color:#E53935; font-size:18px; line-height:1; padding:0; }
+  tr:hover .del-btn { opacity:1; }
+  @keyframes ri { from { opacity:0; transform:translateY(3px); } to { opacity:1; transform:translateY(0); } }
+  .ri { animation:ri .18s ease; }
+
+  /* ── Checkbox ── */
+  .cb { width:15px; height:15px; border-radius:3px; margin:0 auto; flex-shrink:0;
+    border:1.5px solid rgb(180,180,180); background:transparent; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; transition:border-color .12s, background .12s; }
+  .cb.checked { border-color:rgb(180,180,180); background:rgb(180,180,180); }
+  .cb.disabled { opacity:.4; cursor:default; }
+  .cb svg { display:none; }
+  .cb.checked svg { display:block; }
+
+  /* ── Add buttons ── */
+  .add-row { padding:14px 0; display:flex; gap:8px; align-items:center; }
+  .add-label { font-size:11px; color:var(--text3); margin-right:2px; }
+  .add-btn { border:none; border-radius:var(--radius); padding:7px 18px; font-size:13px; font-weight:500;
+    cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-family:var(--font); transition:filter .12s; }
+  .add-btn:hover { filter:brightness(.93); }
+  .add-basic { background:var(--succ-bg); color:var(--succ-fg); }
+  .add-double { background:var(--dang-bg); color:var(--dang-fg); }
+  /* ── Responsive <= 780px ── */
+  @media (max-width: 780px) {
+    body { padding: 12px 12px 48px; }
+
+    /* Stats bar: chips to 2x2 grid */
+    .stats-bar { gap: 8px; padding: 10px 0 9px; }
+    .stats-chips { gap: 5px; display: grid; grid-template-columns: 1fr 1fr; margin-left: 0; width: 100%; }
+    .stat-chip { padding: 5px 8px; min-width: 0; }
+    .stat-chip-label { font-size: 9px; }
+    .stat-chip-val { font-size: 16px; }
+    .stat-chip-unit { font-size: 9px; }
+
+    /* Toolbar: data controls wrap */
+    .toolbar { flex-wrap: wrap; padding: 7px 0 3px; }
+    .data-controls { margin-left: 0; width: 100%; padding-top: 5px; border-top: .5px solid var(--border1); margin-top: 1px; }
+    #sync-status { display: none; }
+
+    /* Add row */
+    .add-row { padding: 10px 0; }
+    .add-btn { padding: 5px 13px; font-size: 12px; }
+
+    /* ── Table compact ── */
+    /* 자료(received) · 완성본(done) 체크박스 열 숨김 */
+    table { min-width: 0; }
+    th.col-received, td.col-received,
+    th.col-done,     td.col-done { display: none; }
+
+    /* 타입: 기본/2배 축약 표시 */
+    .type-short { display: inline; }
+    .type-full  { display: none; }
+
+    /* 날짜: 연도 제거 — .date-short 표시, input 숨김 */
+    .date-input-wrap { display: none; }
+    .date-short-wrap { display: block; font-size: 12px; color: var(--text2); }
+  }
+
+  /* ── Responsive <= 520px ── */
+  @media (max-width: 520px) {
+    body { padding: 10px 10px 40px; }
+    .stats-title-sub { display: none; }
+    .stats-title { font-size: 15px; }
+    .stat-chip-val { font-size: 14px; }
+    .stat-chip { padding: 4px 7px; }
+    .sort-btn { font-size: 11px; padding: 3px 7px; }
+    .add-btn { padding: 5px 11px; font-size: 11px; }
+
+    /* 더 좁을 때 아이디 열도 줄임 */
+    td.col-userid input { font-size: 12px; }
+  }
+
+  /* 기본(넓은 화면)에서는 축약 요소 숨김 */
+  .type-short { display: none; }
+  .date-short-wrap { display: none; }
+  .type-full select { display: inline; }
+  .pages-unit { display: inline; }
+  .days-unit  { display: inline; }
+
+  /* 컴팩트 장수 토글: 숫자만, 배경 없음 */
+  .pages-toggle {
+    display: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    background: none;
+    border: none;
+    color: var(--text1);
+    font-family: var(--font);
+    padding: 0;
+    line-height: 1;
+  }
+  .pages-toggle:hover { color: var(--blue); }
+
+  .type-pages-compact { display: none; }
+
+  @media (max-width: 780px) {
+    /* 타입: 텍스트만, 배경/테두리 없음 */
+    .type-full  { display: none !important; }
+    .type-short {
+      display: inline !important;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text2);
+      background: none;
+      padding: 0;
+    }
+    .type-short:hover { color: var(--text1); }
+
+    /* 날짜 단축 */
+    .date-input-wrap { display: none !important; }
+    .date-short-wrap { display: inline !important; cursor: pointer;
+      font-size: 12px; white-space: nowrap; color: var(--text2); }
+    .date-short-wrap:hover { text-decoration: underline dotted; }
+
+    /* 장수: 숫자 클릭 토글 */
+    .pages-select { display: none !important; }
+    .pages-toggle { display: inline-block; }
+
+    /* 입금일/마감일 열 폭 축소 */
+    th.col-paydate, td.col-paydate,
+    th.col-deadline, td.col-deadline { width: 46px !important; padding-left: 4px !important; padding-right: 4px !important; }
+
+    /* 타입 열 폭 축소 */
+    th.col-type, td.col-type { width: 44px !important; }
+
+    /* 장수 열 폭 축소 */
+    th.col-pages, td.col-pages { width: 28px !important; padding-left: 2px !important; padding-right: 2px !important; }
+
+    /* 남은일수 열 폭 축소 */
+    th.col-days, td.col-days { width: 36px !important; padding-left: 3px !important; padding-right: 3px !important; }
+
+    /* 완성본 전송 열 다시 표시 */
+    th.col-done, td.col-done { display: table-cell !important; width: 40px !important; padding-left: 2px !important; padding-right: 2px !important; }
+
+    .days-unit { display: none; }
+  }
+
+  /* 장수 드롭다운 팝업 */
+  .pages-dropdown {
+    position: relative;
+    display: inline-block;
+  }
+  .pages-dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg);
+    border: .5px solid var(--border2);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.12);
+    z-index: 999;
+    overflow: hidden;
+    min-width: 36px;
+  }
+  .pages-dropdown-menu.open { display: block; }
+  .pages-dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 6px 10px;
+    text-align: center;
+    font-size: 13px;
+    font-family: var(--font);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text1);
+  }
+  .pages-dropdown-item:hover { background: var(--bg2); }
+  .pages-dropdown-item.selected { font-weight: 700; color: var(--blue); }
+
+  /* ── Calendar ── */
+  .cal-wrap { margin-top:28px; border-top:.5px solid var(--border1); padding-top:20px; }
+  .cal-title { font-size:13px; font-weight:500; color:var(--text2); margin-bottom:14px; letter-spacing:.04em; }
+  .cal-header { display:flex; align-items:center; margin-bottom:14px; gap:0; flex-wrap:wrap; gap:6px; }
+  .nav-btn { background:none; border:.5px solid var(--border2); border-radius:6px; cursor:pointer;
+    color:var(--text2); height:26px; display:inline-flex; align-items:center; justify-content:center;
+    font-size:11px; font-weight:500; padding:0 9px; white-space:nowrap; font-family:var(--font); transition:background .1s; }
+  .nav-btn:hover { background:var(--bg2); }
+  .nav-arrow { font-size:20px; padding:0 12px; }
+  .cal-month { font-weight:600; font-size:14px; flex:1; text-align:center; }
+  .cal-nav-btns { display:flex; gap:5px; margin-left:14px; }
+  .nav-btn.dim { opacity:.35; cursor:default; }
+
+  /* 요일 헤더 + 날짜 셀을 하나의 반응형 그리드로 통합 */
+  .cal-table {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    width: 100%;
+  }
+  .day-name {
+    text-align: center;
+    font-size: clamp(9px, 1.2vw, 11px);
+    font-weight: 600;
+    padding: clamp(3px, 0.6vw, 5px) 0;
+    letter-spacing: .05em;
+  }
+  .cal-cell {
+    min-height: clamp(44px, 8vw, 80px);
+    border-radius: clamp(4px, 0.8vw, 8px);
+    padding: clamp(3px, 0.6vw, 6px) clamp(2px, 0.5vw, 5px) clamp(2px, 0.4vw, 5px);
+    background: transparent;
+    position: relative;
+    overflow: hidden;
+  }
+  .cal-cell.today { background:var(--bg2); border:1.5px solid var(--blue); }
+  .day-num {
+    font-size: clamp(10px, 1.4vw, 13px);
+    font-weight: 400;
+    text-align: center;
+    margin-bottom: clamp(2px, 0.4vw, 4px);
+    color: var(--text1);
+  }
+  .day-num.today-num {
+    background: var(--blue);
+    color: #fff;
+    border-radius: 50%;
+    width: clamp(16px, 2.4vw, 22px);
+    height: clamp(16px, 2.4vw, 22px);
+    line-height: 1;
+    margin: 0 auto clamp(2px, 0.4vw, 5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(9px, 1.2vw, 12px);
+    font-weight: 700;
+  }
+  .day-num.sun { color:#E53935; }
+  .day-num.sat { color:var(--blue); }
+  /* 그날 작업 건수(①②③…): 날짜 칸 오른쪽 위 */
+  .day-count {
+    position: absolute;
+    top: clamp(0px, 0.2vw, 3px);
+    right: clamp(1px, 0.4vw, 4px);
+    font-size: clamp(15px, 2.1vw, 20px);
+    line-height: 1;
+    font-weight: 600;
+    color: var(--text1);
+  }
+  .chip {
+    font-size: clamp(9px, 1vw, 11px);
+    line-height: 1.5;
+    border-radius: 3px;
+    padding: 1px clamp(2px, 0.4vw, 4px);
+    margin-bottom: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    display: block;
+  }
+  .chip-basic { background:rgba(0,0,0,0.08); color:var(--text1); }
+  .chip-double { background:rgba(134,239,172,0.45); color:#166534; }
+  .legend { display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; align-items:center; }
+  .legend-item { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--text3); }
+  .legend-chip { font-size:11px; font-weight:600; border-radius:3px; padding:1px 6px; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- ── 월별 남은 갯수 (최상단 오른쪽) ── -->
+  <div class="month-remain">
+    <span><span id="stat-m1-label">이번 달 남은 갯수</span><b class="mr-val" id="stat-m1">0</b>개</span>
+    <span class="mr-sep">/</span>
+    <span><span id="stat-m2-label">다음 달 남은 갯수</span><b class="mr-val" id="stat-m2">0</b>개</span>
+  </div>
+
+  <!-- ── Stats ── -->
+  <div class="stats-bar">
+    <div>
+      <div class="stats-title-sub">Commission</div>
+      <div class="stats-title">작업 현황</div>
+    </div>
+    <div class="stats-chips">
+      <div class="stat-chip" style="background:var(--info-bg)">
+        <div class="stat-chip-label" style="color:var(--info-fg)">전체</div>
+        <div class="stat-chip-val" style="color:var(--info-fg)" id="stat-total">0</div>
+        <div class="stat-chip-unit" style="color:var(--info-fg)">장</div>
+      </div>
+      <div class="stat-chip" style="background:var(--warn-bg)">
+        <div class="stat-chip-label" style="color:var(--warn-fg)">배경투명화</div>
+        <div class="stat-chip-val" style="color:var(--warn-fg)" id="stat-bg">0</div>
+        <div class="stat-chip-unit" style="color:var(--warn-fg)">건</div>
+      </div>
+      <div class="stat-chip" style="background:var(--succ-bg)">
+        <div class="stat-chip-label" style="color:var(--succ-fg)">기본</div>
+        <div class="stat-chip-val" style="color:var(--succ-fg)" id="stat-basic">0</div>
+        <div class="stat-chip-unit" style="color:var(--succ-fg)">장</div>
+      </div>
+      <div class="stat-chip" style="background:var(--dang-bg)">
+        <div class="stat-chip-label" style="color:var(--dang-fg)">2배</div>
+        <div class="stat-chip-val" style="color:var(--dang-fg)" id="stat-double">0</div>
+        <div class="stat-chip-unit" style="color:var(--dang-fg)">장</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Toolbar ── -->
+  <div class="toolbar">
+    <span class="toolbar-label">정렬</span>
+    <button class="sort-btn" id="sort-paydate" onclick="toggleSort('payDate')">↑ 입금일순</button>
+    <button class="sort-btn" id="sort-deadline" onclick="toggleSort('deadline')">↑ 마감일순</button>
+    <button class="reset-btn" id="sort-reset" style="visibility:hidden" onclick="resetSort()">초기화</button>
+    <div class="data-controls">
+      <span class="toolbar-label" id="sync-status">브라우저에 저장 중</span>
+      <button class="sort-btn" onclick="exportData()">⬇ 내보내기</button>
+      <button class="sort-btn" onclick="document.getElementById('import-input').click()">⬆ 가져오기</button>
+      <button class="sort-btn" id="btn-link-file" onclick="toggleFileSync()">📁 파일 자동저장 연결</button>
+      <button class="sort-btn" id="btn-gh" onclick="ghToggle()">☁ GitHub 연결</button>
+      <button class="sort-btn" id="btn-gh-sync" style="display:none" onclick="ghLoad(true)">🔄</button>
+    </div>
+    <input type="file" id="import-input" accept="application/json" style="display:none" onchange="handleImportFile(event)"/>
+  </div>
+
+  <!-- ── Table ── -->
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:36px;text-align:center">#</th>
+          <th class="col-type" style="width:118px;text-align:left">타입</th>
+          <th class="col-pages" style="width:68px;text-align:center">장수</th>
+          <th class="col-userid" style="width:160px;text-align:left">아이디</th>
+          <th class="col-received" style="width:50px;text-align:center">자료</th>
+          <th class="col-paydate" style="width:108px;text-align:left">입금일</th>
+          <th class="col-deadline" style="width:108px;text-align:left">마감일</th>
+          <th class="col-days" style="width:78px;text-align:center">남은 일수</th>
+          <th style="width:58px;text-align:center">배경&#10;투명화</th>
+          <th class="col-done" style="width:58px;text-align:center">완성본&#10;전송</th>
+          <th style="width:32px;text-align:center"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- ── Add buttons ── -->
+  <div class="add-row">
+    <span class="add-label">추가</span>
+    <button class="add-btn add-basic" onclick="addRow('기본')">＋ 기본</button>
+    <button class="add-btn add-double" onclick="addRow('2배')">＋ 2배</button>
+  </div>
+
+  <!-- ── Calendar ── -->
+  <div class="cal-wrap">
+    <div class="cal-title">마감일 달력</div>
+    <div class="cal-header">
+      <button class="nav-btn nav-arrow" onclick="calPrev()">‹</button>
+      <span class="cal-month" id="cal-month-label"></span>
+      <button class="nav-btn nav-arrow" onclick="calNext()">›</button>
+      <div class="cal-nav-btns">
+        <button class="nav-btn" style="font-size:13px" onclick="calGoToday()">오늘</button>
+        <button class="nav-btn" id="btn-earliest" style="font-size:13px" onclick="calGoEarliest()">빠른 마감</button>
+        <button class="nav-btn" style="font-size:13px" onclick="calNext()">다음달 →</button>
+      </div>
+    </div>
+    <div class="cal-table" id="cal-grid">
+      <div class="day-name" style="color:#E53935">일</div>
+      <div class="day-name" style="color:#999">월</div>
+      <div class="day-name" style="color:#999">화</div>
+      <div class="day-name" style="color:#999">수</div>
+      <div class="day-name" style="color:#999">목</div>
+      <div class="day-name" style="color:#999">금</div>
+      <div class="day-name" style="color:var(--blue)">토</div>
+    </div>
+    <div class="legend">
+      <div class="legend-item">
+        <span class="legend-chip chip-basic">[기본]</span> 기본
+      </div>
+      <div class="legend-item">
+        <span class="legend-chip chip-double">[2배]</span> 2배
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORE_KEY = 'commission-tracker-v2';
+const MONTH_NAMES = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+
+/* ── Storage (localStorage + optional linked file) ── */
+function sanitizeRows(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr.map(r => {
+    r = r && typeof r === 'object' ? r : {};
+    const pages = Number(r.pages);
+    const payDate = (typeof r.payDate === 'string' && r.payDate) ? r.payDate : todayISO();
+    const deadline = (typeof r.deadline === 'string' && r.deadline) ? r.deadline : addExactTwoMonths(payDate);
+    return {
+      id: (typeof r.id === 'string' && r.id) ? r.id : uid(),
+      type: (r.type === '2배' || r.type === '\uD1A0\uD1A0\uB0D0 2배') ? '2배' : '기본',
+      pages: (Number.isFinite(pages) && pages >= 1 && pages <= 5) ? pages : 1,
+      userId: typeof r.userId === 'string' ? r.userId : '',
+      received: !!r.received,
+      payDate,
+      deadline,
+      bgTrans: !!r.bgTrans,
+      done: !!r.done
+    };
+  });
+}
+function loadRows() {
+  try { const v = localStorage.getItem(STORE_KEY); return v ? sanitizeRows(JSON.parse(v)) : []; } catch { return []; }
+}
+function saveRows() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(rows)); } catch {}
+    writeToLinkedFile();
+    ghMarkDirty();
+  }, 400);
+}
+
+/* ── Export / Import (JSON file, works in any browser) ── */
+function exportData() {
+  const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `commission-tracker-${todayISO()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+function handleImportFile(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!Array.isArray(data)) throw new Error('invalid');
+      if (!confirm(`${data.length}개 항목을 불러옵니다. 현재 화면의 데이터는 덮어씌워집니다. 계속할까요?`)) return;
+      rows = sanitizeRows(data);
+      saveRows();
+      renderAll();
+    } catch {
+      alert('파일을 읽을 수 없습니다. 올바른 백업(JSON) 파일인지 확인해주세요.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ── Linked file auto-save (File System Access API: Chrome/Edge) ── */
+const FS_SUPPORTED = 'showSaveFilePicker' in window;
+const IDB_NAME = 'commission-tracker-fs';
+const IDB_STORE = 'handles';
+let fileHandle = null;     // currently authorized & linked
+let pendingHandle = null;  // remembered but needs permission re-grant
+
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbPutHandle(handle) {
+  try {
+    const db = await idbOpen();
+    await new Promise((res, rej) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(handle, 'main');
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+    });
+  } catch {}
+}
+async function idbGetHandle() {
+  try {
+    const db = await idbOpen();
+    return await new Promise((res, rej) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get('main');
+      req.onsuccess = () => res(req.result || null);
+      req.onerror = () => rej(req.error);
+    });
+  } catch { return null; }
+}
+async function idbDeleteHandle() {
+  try {
+    const db = await idbOpen();
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).delete('main');
+  } catch {}
+}
+
+async function toggleFileSync() {
+  if (!FS_SUPPORTED) {
+    alert('이 브라우저는 파일 자동저장 기능을 지원하지 않습니다 (Chrome/Edge 등 권장).\n대신 "내보내기"로 받은 JSON 파일을 다른 브라우저에서 "가져오기"로 불러와 사용해주세요.');
+    return;
+  }
+  // 이미 연결된 상태 → 연결 해제
+  if (fileHandle) {
+    fileHandle = null;
+    pendingHandle = null;
+    await idbDeleteHandle();
+    updateSyncStatus();
+    return;
+  }
+  // 끊긴 연결 재연결 시도
+  if (pendingHandle) {
+    try {
+      const perm = await pendingHandle.requestPermission({ mode: 'readwrite' });
+      if (perm === 'granted') {
+        fileHandle = pendingHandle;
+        pendingHandle = null;
+        await writeToLinkedFile();
+        updateSyncStatus();
+        return;
+      }
+    } catch {}
+  }
+  // 새 파일 선택/생성
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: 'commission-tracker-data.json',
+      types: [{ description: 'JSON 데이터', accept: { 'application/json': ['.json'] } }]
+    });
+    fileHandle = handle;
+    pendingHandle = null;
+    await writeToLinkedFile();
+    await idbPutHandle(handle);
+    updateSyncStatus();
+  } catch {
+    // 사용자가 취소함
+  }
+}
+
+async function writeToLinkedFile() {
+  if (!fileHandle) return;
+  try {
+    const perm = await fileHandle.queryPermission({ mode: 'readwrite' });
+    if (perm !== 'granted') {
+      pendingHandle = fileHandle;
+      fileHandle = null;
+      updateSyncStatus();
+      return;
+    }
+    const writable = await fileHandle.createWritable();
+    await writable.write(JSON.stringify(rows, null, 2));
+    await writable.close();
+    updateSyncStatus();
+  } catch {}
+}
+
+function updateSyncStatus() {
+  const btn = document.getElementById('btn-link-file');
+  const status = document.getElementById('sync-status');
+  if (!btn || !status) return;
+  btn.classList.remove('sync-active', 'sync-pending');
+  if (!FS_SUPPORTED) {
+    btn.textContent = '📁 파일 자동저장 (미지원)';
+    status.textContent = '브라우저에 저장 중';
+    return;
+  }
+  if (fileHandle) {
+    btn.textContent = '🔗 파일 연동 해제';
+    btn.classList.add('sync-active');
+    const now = new Date();
+    status.textContent = `${fileHandle.name} 파일에 자동저장됨 (${pad(now.getHours())}:${pad(now.getMinutes())})`;
+  } else if (pendingHandle) {
+    btn.textContent = '🔄 파일 다시 연결';
+    btn.classList.add('sync-pending');
+    status.textContent = `${pendingHandle.name} 연동 끊김 - 다시 연결 필요`;
+  } else {
+    btn.textContent = '📁 파일 자동저장 연결';
+    status.textContent = '브라우저에 저장 중';
+  }
+}
+
+async function initFileSync() {
+  if (!FS_SUPPORTED) { updateSyncStatus(); return; }
+  const handle = await idbGetHandle();
+  if (!handle) { updateSyncStatus(); return; }
+  try {
+    const perm = await handle.queryPermission({ mode: 'readwrite' });
+    if (perm === 'granted') fileHandle = handle;
+    else pendingHandle = handle;
+  } catch {}
+  updateSyncStatus();
+}
+
+/* ── GitHub sync (private repo의 data.json 을 읽고 씀) ── */
+const GH_KEY = 'commission-tracker-gh';
+const GH_DIRTY = 'commission-tracker-dirty';
+let gh = null;
+try { gh = JSON.parse(localStorage.getItem(GH_KEY) || 'null'); } catch {}
+let ghSha = null, ghBusy = false, ghTimer = null, ghVer = 0;
+
+function ghUrl() { return `https://api.github.com/repos/${gh.repo}/contents/${gh.path || 'data.json'}`; }
+function ghHeaders() {
+  return { Authorization: `Bearer ${gh.token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
+}
+function b64enc(s) {
+  const bytes = new TextEncoder().encode(s); let bin = '';
+  bytes.forEach(c => bin += String.fromCharCode(c));
+  return btoa(bin);
+}
+function b64dec(s) {
+  const bin = atob(s.replace(/\s/g, ''));
+  return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
+}
+function ghStatus(state, msg) {
+  const btn = document.getElementById('btn-gh');
+  const sync = document.getElementById('btn-gh-sync');
+  if (!btn) return;
+  btn.classList.remove('sync-active', 'sync-pending');
+  if (!gh) { btn.textContent = '☁ GitHub 연결'; sync.style.display = 'none'; return; }
+  sync.style.display = '';
+  if (state === 'busy') { btn.textContent = '☁ 동기화 중…'; btn.classList.add('sync-pending'); }
+  else if (state === 'err') { btn.textContent = '⚠ ' + (msg || '동기화 실패'); btn.classList.add('sync-pending'); }
+  else { const n = new Date(); btn.textContent = `☁ 동기화됨 ${pad(n.getHours())}:${pad(n.getMinutes())}`; btn.classList.add('sync-active'); }
+}
+function ghErrMsg(e) {
+  const s = String(e && e.message || e);
+  if (s === '401' || s === '403') return '토큰 확인 필요';
+  if (s === '404') return '저장소 확인 필요';
+  return '동기화 실패';
+}
+async function ghPull() {
+  const r = await fetch(ghUrl(), { headers: ghHeaders(), cache: 'no-store' });
+  if (r.status === 404) { ghSha = null; return null; }
+  if (!r.ok) throw new Error(r.status);
+  const j = await r.json();
+  ghSha = j.sha;
+  return sanitizeRows(JSON.parse(b64dec(j.content)));
+}
+async function ghPush(retry = true) {
+  const v = ghVer;
+  const body = { message: 'update ' + new Date().toISOString(), content: b64enc(JSON.stringify(rows, null, 2)) };
+  if (ghSha) body.sha = ghSha;
+  const r = await fetch(ghUrl(), { method: 'PUT', headers: ghHeaders(), body: JSON.stringify(body) });
+  if ((r.status === 409 || r.status === 422) && retry) { await ghPull(); return ghPush(false); }
+  if (!r.ok) throw new Error(r.status);
+  const j = await r.json();
+  ghSha = j.content.sha;
+  if (v === ghVer) localStorage.removeItem(GH_DIRTY);
+  ghStatus('ok');
+}
+function ghMarkDirty() {
+  ghVer++;
+  if (!gh) return;
+  try { localStorage.setItem(GH_DIRTY, '1'); } catch {}
+  clearTimeout(ghTimer);
+  ghTimer = setTimeout(ghFlush, 1200);
+}
+async function ghFlush() {
+  if (!gh) return;
+  if (ghBusy) { ghTimer = setTimeout(ghFlush, 1000); return; }
+  ghBusy = true; ghStatus('busy');
+  try { if (ghSha === null) await ghPull(); await ghPush(); }
+  catch (e) { ghStatus('err', ghErrMsg(e)); }
+  ghBusy = false;
+}
+// 시작할 때 / 다시 앱으로 돌아올 때 GitHub 최신본을 가져옴
+async function ghLoad(force) {
+  if (!gh || ghBusy) return;
+  ghBusy = true; ghStatus('busy');
+  try {
+    const remote = await ghPull();
+    const dirty = localStorage.getItem(GH_DIRTY) === '1';
+    if (remote === null || dirty) {
+      await ghPush();
+    } else {
+      if (JSON.stringify(remote) !== JSON.stringify(rows)) {
+        rows = remote;
+        try { localStorage.setItem(STORE_KEY, JSON.stringify(rows)); } catch {}
+        renderAll();
+      }
+      ghStatus('ok');
+    }
+  } catch (e) { ghStatus('err', ghErrMsg(e)); }
+  ghBusy = false;
+}
+async function ghToggle() {
+  if (gh) {
+    if (confirm('GitHub 연동을 해제할까요?\n(이 기기에 저장된 토큰만 지워지고, GitHub의 데이터는 그대로 남습니다)')) {
+      gh = null; localStorage.removeItem(GH_KEY); localStorage.removeItem(GH_DIRTY); ghSha = null;
+      ghStatus('off');
+    }
+    return;
+  }
+  const repo = (prompt('데이터 저장소를 입력하세요\n예) 내아이디/commission-data') || '').trim();
+  if (!repo) return;
+  const token = (prompt('GitHub 토큰(github_pat_...)을 붙여넣으세요') || '').trim();
+  if (!token) return;
+  gh = { repo, token, path: 'data.json' };
+  try {
+    const remote = await ghPull();
+    if (remote === null) {
+      await ghPush();
+    } else if (rows.length && JSON.stringify(remote) !== JSON.stringify(rows)) {
+      if (confirm(`GitHub에 ${remote.length}개, 이 기기에 ${rows.length}개의 데이터가 있습니다.\n\n[확인] GitHub 데이터를 불러오기 (이 기기 데이터는 덮어씀)\n[취소] 이 기기 데이터를 GitHub에 올리기`)) {
+        rows = remote; try { localStorage.setItem(STORE_KEY, JSON.stringify(rows)); } catch {} renderAll();
+      } else { await ghPush(); }
+    } else {
+      rows = remote; try { localStorage.setItem(STORE_KEY, JSON.stringify(rows)); } catch {} renderAll();
+    }
+    localStorage.setItem(GH_KEY, JSON.stringify(gh));
+    localStorage.removeItem(GH_DIRTY);
+    ghStatus('ok');
+  } catch (e) {
+    alert('연결 실패: ' + ghErrMsg(e) + '\n저장소 이름과 토큰(Contents 읽기/쓰기 권한)을 확인해주세요.');
+    gh = null; ghStatus('off');
+  }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') ghLoad(); });
+
+/* ── Helpers ── */
+function pad(n) { return String(n).padStart(2,'0'); }
+function toLocalISO(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+const todayISO = () => toLocalISO(new Date());
+function addExactTwoMonths(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  const tm = d.getMonth() + 2;
+  const ty = d.getFullYear() + Math.floor(tm / 12);
+  const nm = tm % 12;
+  const last = new Date(ty, nm + 1, 0).getDate();
+  return toLocalISO(new Date(ty, nm, Math.min(d.getDate(), last)));
+}
+function daysLeft(iso) {
+  const now = new Date(); now.setHours(0,0,0,0);
+  return Math.ceil((new Date(iso + 'T00:00:00') - now) / 86400000);
+}
+function prettyDate(iso) {
+  if (!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${y}. ${+m}. ${+d}`;
+}
+function prettyDateShort(iso) {
+  if (!iso) return '';
+  const [,m,d] = iso.split('-');
+  return `${pad(+m)}-${pad(+d)}`;
+}
+function uid() { return `${Date.now()}_${Math.random().toString(36).slice(2,6)}`; }
+function makeRow(type = '기본') {
+  const pd = todayISO();
+  return { id: uid(), type, pages: 1, userId: '', received: false,
+    payDate: pd, deadline: addExactTwoMonths(pd), bgTrans: false, done: false };
+}
+
+/* ── State ── */
+let rows = loadRows();
+let saveTimer = null;
+let sortBy = null;
+let calYear, calMonth;
+(function(){ const t = new Date(); calYear = t.getFullYear(); calMonth = t.getMonth(); })();
+
+/* ── Row ops ── */
+function addRow(type) {
+  const r = makeRow(type);
+  rows.push(r);
+  saveRows();
+  renderAll();
+}
+function deleteRow(id) {
+  rows = rows.filter(r => r.id !== id);
+  saveRows();
+  renderAll();
+}
+function updateRow(id, k, v) {
+  rows = rows.map(r => {
+    if (r.id !== id) return r;
+    if (k === 'payDate' && v) return { ...r, [k]: v, deadline: addExactTwoMonths(v) };
+    return { ...r, [k]: v };
+  });
+  saveRows();
+  renderAll();
+}
+/* 아이디 입력란: 타이핑할 때마다 테이블을 다시 그리면 한글 조합(IME)이 끊기므로
+   테이블은 다시 그리지 않고 상태 저장 + 통계/달력만 갱신 */
+function updateUserId(id, v) {
+  rows = rows.map(r => r.id === id ? { ...r, userId: v } : r);
+  saveRows();
+  renderStats();
+  renderCalendar();
+}
+
+/* ── Sort ── */
+function toggleSort(key) {
+  sortBy = (sortBy === key) ? null : key;
+  document.getElementById('sort-paydate').classList.toggle('active', sortBy === 'payDate');
+  document.getElementById('sort-deadline').classList.toggle('active', sortBy === 'deadline');
+  document.getElementById('sort-reset').style.visibility = sortBy ? 'visible' : 'hidden';
+  renderAll();
+}
+function resetSort() { sortBy = null; toggleSort(null); }
+
+function getSortedRows() {
+  if (!sortBy) return [...rows];
+  return [...rows].sort((a, b) => {
+    if (sortBy === 'deadline') {
+      const va = a.done ? '0000-00-00' : a.deadline;
+      const vb = b.done ? '0000-00-00' : b.deadline;
+      return va < vb ? -1 : va > vb ? 1 : 0;
+    }
+    const va = a[sortBy], vb = b[sortBy];
+    return va < vb ? -1 : va > vb ? 1 : 0;
+  });
+}
+
+/* ── Checkbox helper ── */
+function cbHTML(id, field, checked, disabled) {
+  const dis = disabled ? 'disabled' : '';
+  const chk = checked ? 'checked' : '';
+  const onclick = disabled ? '' : `onclick="updateRow('${id}','${field}',${!checked})"`;
+  return `<div class="cb ${chk} ${dis}" ${onclick} role="checkbox" aria-checked="${checked}">
+    <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+      <path d="M1 3.5 3.5 6 8 1" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>`;
+}
+
+/* ── Table render ── */
+function renderTable() {
+  const tbody = document.getElementById('tbody');
+  const sorted = getSortedRows();
+  if (sorted.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="11" style="padding:44px;text-align:center;color:var(--text3);font-size:13px">항목이 없습니다. 아래 버튼으로 추가하세요.</td></tr>`;
+    return;
+  }
+
+  const today = todayISO();
+  tbody.innerHTML = sorted.map((r, idx) => {
+    const days = daysLeft(r.deadline);
+    const done = r.done;
+    const yl = r.bgTrans && !done;
+    const BG_TRANS = 'rgb(246,244,240)';
+    const DONE_BG = 'rgb(204,204,204)';
+
+    const urgBg = done ? DONE_BG
+      : days <= 3  ? 'rgb(226,101,100)'
+      : days <= 7  ? 'rgb(229,233,236)'
+      : days <= 14 ? 'rgb(246,249,248)'
+      : 'transparent';
+    const urgFg = done ? '#666'
+      : days <= 3  ? '#fff'
+      : days <= 7  ? '#1a1a1a'
+      : days <= 14 ? '#555'
+      : 'var(--text3)';
+
+    const dBg  = done ? DONE_BG : '';
+    const yBg  = done ? DONE_BG : yl ? BG_TRANS : '';
+    const dFg  = done ? '#666' : 'var(--text1)';
+    const dFgS = done ? '#666' : 'var(--text2)';
+
+    const rowCls = done ? 'done-row' : '';
+
+    const typeCell = done
+      ? `<s style="color:#888">${r.type}</s>`
+      : `<span class="type-full"><select onchange="updateRow('${r.id}','type',this.value)">
+           <option${r.type==='기본'?' selected':''}>기본</option>
+           <option${r.type==='2배'?' selected':''}>2배</option>
+         </select></span><span class="type-short" onclick="updateRow('${r.id}','type','${r.type==='기본'?'2배':'기본'}')" title="탭하여 타입 변경">${r.type==='2배'?'2배':'기본'}</span>`;
+
+    const pagesCell = done
+      ? `<s style="color:#888">${r.pages}장</s>`
+      : `<select class="pages-select" onchange="updateRow('${r.id}','pages',+this.value)" style="text-align:center">
+           ${[1,2,3,4,5].map(n=>`<option value="${n}"${n===r.pages?' selected':''}>${n}장</option>`).join('')}
+         </select><div class="pages-dropdown"><button class="pages-toggle" onclick="togglePagesMenu(this)" title="장수 선택">${r.pages}</button><div class="pages-dropdown-menu">${[1,2,3,4,5].map(n=>`<button class="pages-dropdown-item${n===r.pages?' selected':''}" onclick="updateRow('${r.id}','pages',${n});closePagesMenus()">${n}</button>`).join('')}</div></div>`;
+
+    const userCell = done
+      ? `<s style="color:#888">${r.userId||'—'}</s>`
+      : `<input placeholder="아이디" value="${r.userId.replace(/"/g,'&quot;')}" oninput="updateUserId('${r.id}',this.value)"/>`;
+
+    const payCell = done
+      ? `<s style="color:#888">${prettyDate(r.payDate)}</s>`
+      : `<span class="date-input-wrap"><input type="date" value="${r.payDate}" style="font-size:12px" onchange="updateRow('${r.id}','payDate',this.value)"/></span><span class="date-short-wrap" onclick="this.previousElementSibling.style.display='inline';this.previousElementSibling.querySelector('input').showPicker?.();this.style.display='none'">${prettyDateShort(r.payDate)}</span>`;
+
+    const dlCell = done
+      ? `<s style="color:#888">${prettyDate(r.deadline)}</s>`
+      : `<span class="date-input-wrap"><input type="date" value="${r.deadline}" style="font-size:12px" onchange="updateRow('${r.id}','deadline',this.value)"/></span><span class="date-short-wrap" onclick="this.previousElementSibling.style.display='inline';this.previousElementSibling.querySelector('input').showPicker?.();this.style.display='none'">${prettyDateShort(r.deadline)}</span>`;
+
+    return `<tr class="${rowCls}">
+      <td class="num-cell" style="text-align:center;color:var(--text3);font-size:11px;background:${done?DONE_BG:''}">${idx+1}</td>
+      <td class="col-type" style="color:${dFg};background:${yBg}">${typeCell}</td>
+      <td class="col-pages" style="text-align:center;color:${dFg};background:${yBg}">${pagesCell}</td>
+      <td class="col-userid" style="color:${dFg};background:${yBg}">${userCell}</td>
+      <td class="col-received" style="text-align:center;background:${dBg}">${cbHTML(r.id,'received',r.received,done)}</td>
+      <td class="col-paydate" style="color:${dFgS};background:${dBg};font-size:12px">${payCell}</td>
+      <td class="col-deadline" style="color:${dFg};background:${dBg};font-size:12px">${dlCell}</td>
+      <td class="col-days" style="text-align:center;background:${urgBg};color:${urgFg};font-variant-numeric:tabular-nums;font-weight:${days<=7&&!done?500:400}">${!done?`${days}<span class="days-unit">일</span>`:''}</td>
+      <td style="text-align:center;background:${dBg}">${cbHTML(r.id,'bgTrans',r.bgTrans,done)}</td>
+      <td class="col-done" style="text-align:center;background:${dBg}">${cbHTML(r.id,'done',r.done,false)}</td>
+      <td style="text-align:center;background:${done?DONE_BG:''}">
+        <button class="del-btn" onclick="deleteRow('${r.id}')" aria-label="삭제">×</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── Stats render ── */
+function renderStats() {
+  const a = rows.filter(r => !r.done);
+  document.getElementById('stat-total').textContent  = a.reduce((s,r)=>s+r.pages,0);
+  document.getElementById('stat-bg').textContent     = a.filter(r=>r.bgTrans).length;
+  document.getElementById('stat-basic').textContent  = a.filter(r=>r.type==='기본').reduce((s,r)=>s+r.pages,0);
+  document.getElementById('stat-double').textContent = a.filter(r=>r.type==='2배').reduce((s,r)=>s+r.pages,0);
+  renderMonthStats(a);
+}
+
+/* 이번 달 / 다음 달 남은 갯수 (마감일 기준, 완성본 전송 완료 건 제외)
+   - 이미 마감이 지났는데 아직 안 끝난 건은 '이번 달'에 포함 */
+function renderMonthStats(active) {
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  const nx = new Date(y, m + 1, 1);
+  const curKey  = `${y}-${pad(m + 1)}`;
+  const nextKey = `${nx.getFullYear()}-${pad(nx.getMonth() + 1)}`;
+  const withDl = active.filter(r => r.deadline);
+  const cur = withDl.filter(r => r.deadline.slice(0, 7) <= curKey).reduce((s,r)=>s+r.pages,0);
+  const nxt = withDl.filter(r => r.deadline.slice(0, 7) === nextKey).reduce((s,r)=>s+r.pages,0);
+  document.getElementById('stat-m1-label').textContent = `${MONTH_NAMES[m]} 남은 갯수`;
+  document.getElementById('stat-m2-label').textContent = `${MONTH_NAMES[nx.getMonth()]} 남은 갯수`;
+  document.getElementById('stat-m1').textContent = cur;
+  document.getElementById('stat-m2').textContent = nxt;
+}
+
+/* 숫자 → 동그라미 숫자 (①~⑳, ㉑~㉟, ㊱~㊿ / 그 이상은 (51) 형태) */
+function circledNum(n) {
+  if (n >= 1  && n <= 20) return String.fromCharCode(0x2460 + n - 1);
+  if (n >= 21 && n <= 35) return String.fromCharCode(0x3251 + n - 21);
+  if (n >= 36 && n <= 50) return String.fromCharCode(0x32B1 + n - 36);
+  return `(${n})`;
+}
+
+/* ── Calendar render ── */
+function calPrev() {
+  if (calMonth === 0) { calMonth = 11; calYear--; } else calMonth--;
+  renderCalendar();
+}
+function calNext() {
+  if (calMonth === 11) { calMonth = 0; calYear++; } else calMonth++;
+  renderCalendar();
+}
+function calGoToday() {
+  const t = new Date(); calYear = t.getFullYear(); calMonth = t.getMonth();
+  renderCalendar();
+}
+function calGoEarliest() {
+  const today = todayISO();
+  const active = rows.filter(r => !r.done && r.deadline && r.deadline >= today);
+  if (!active.length) return;
+  const earliest = active.map(r=>r.deadline).sort()[0];
+  const [y,m] = earliest.split('-');
+  calYear = +y; calMonth = +m - 1;
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const today = todayISO();
+  const active = rows.filter(r => !r.done && r.deadline);
+  const future = active.map(r=>r.deadline).filter(d=>d>=today).sort();
+  const earliest = future[0] || null;
+
+  document.getElementById('cal-month-label').textContent = `${calYear}년 ${MONTH_NAMES[calMonth]}`;
+  const eb = document.getElementById('btn-earliest');
+  eb.classList.toggle('dim', !earliest);
+
+  // deadline map
+  const dlMap = {};
+  active.forEach(r => {
+    if (!dlMap[r.deadline]) dlMap[r.deadline] = [];
+    dlMap[r.deadline].push(r);
+  });
+
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+
+  let html = '';
+  // empty cells
+  for (let i = 0; i < firstDay; i++) html += `<div class="cal-cell" style="border:none;min-height:80px"></div>`;
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const iso = `${calYear}-${pad(calMonth+1)}-${pad(day)}`;
+    const isToday = iso === today;
+    const deadlines = dlMap[iso] || [];
+    const colIdx = (firstDay + day - 1) % 7;
+    const isSun = colIdx === 0;
+    const isSat = colIdx === 6;
+
+    const numCls = isToday ? 'today-num' : isSun ? 'sun' : isSat ? 'sat' : '';
+    const chips = deadlines.map(r => {
+      const is2 = r.type === '2배';
+      const prefix = is2 ? '[2배]' : '[기본]';
+      const label = r.userId ? `${prefix} ${r.userId}` : prefix;
+      const cls = is2 ? 'chip chip-double' : 'chip chip-basic';
+      return `<div class="${cls}">${label}</div>`;
+    }).join('');
+
+    const title = deadlines.map(r=>`${r.type==='2배'?'[2배]':'[기본]'} ${r.userId||'?'}`).join(', ');
+
+    const dayPageCount = deadlines.reduce((s,r)=>s+r.pages,0);
+    const countBadge = dayPageCount
+      ? `<span class="day-count" title="${dayPageCount}장">${circledNum(dayPageCount)}</span>`
+      : '';
+
+    html += `<div class="cal-cell${isToday?' today':''}" title="${title}">
+      ${countBadge}
+      <div class="day-num ${numCls}">${day}</div>
+      ${chips}
+    </div>`;
+  }
+
+  const grid = document.getElementById('cal-grid');
+  // 요일 헤더(day-name) 7개는 유지하고, 그 뒤의 날짜 셀만 교체
+  const dayNames = Array.from(grid.querySelectorAll('.day-name'));
+  grid.innerHTML = '';
+  dayNames.forEach(el => grid.appendChild(el));
+  grid.insertAdjacentHTML('beforeend', html);
+}
+
+/* ── Render all ── */
+function renderAll() {
+  renderStats();
+  renderTable();
+  renderCalendar();
+}
+
+renderAll();
+initFileSync();
+ghStatus('ok'); if (gh) { document.getElementById('btn-gh').textContent = '☁ GitHub'; ghLoad(); }
+
+/* ── 장수 드롭다운 (좁은 화면용) ── */
+function togglePagesMenu(btn) {
+  const menu = btn.nextElementSibling;
+  const isOpen = menu.classList.contains('open');
+  closePagesMenus();
+  if (!isOpen) menu.classList.add('open');
+}
+function closePagesMenus() {
+  document.querySelectorAll('.pages-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.pages-dropdown')) closePagesMenus();
+});
+</script>
+</body>
+</html>
